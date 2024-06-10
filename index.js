@@ -41,31 +41,73 @@ function calculateBounds(geoJSONFeature) {
  * TODO: Push this to a database.
  * @returns 
  */
-function processSHPs() {
-    let running = [];
+async function processSHPs() {
+    if (!fs.existsSync(`tmp/shpfeatures`)) {
+        fs.mkdirSync(`tmp/shpfeatures`);
+    }
+
+    let references = {};
+
     for (let i = 0; i < shp.features.length; i++) {
-        running.push(new Promise((resolve, reject) => {
-            let filename = `tmp/shpfeatures/${i}.json`;
-            let bounds = calculateBounds(shp.features[i]);
-            shp.features[i].bounds = bounds;
-            console.log(`   Writing ${filename}`);
-            try {    
-                let asJSON = JSON.stringify(shp.features[i], null, 4);
-                fs.writeFileSync(`${filename}`, asJSON);
-            } catch(ex) {
-                reject(ex);
-            }
-            resolve();
-        }));
+        let ident = shp.features[i]["properties"]["IDENT"];
+        let name = shp.features[i]["properties"]["NAME"];
+        let fn = ident + "_" +  name.replace(/[^a-zA-Z0-9]/g, "-");
+        let jsonname = `feature_${fn}_${i}.json`;
+        let filename = `tmp/shpfeatures/${jsonname}`;
+        let bounds = calculateBounds(shp.features[i]);
+        shp.features[i].bounds = bounds;
+        console.log(`   Writing ${filename}`);
+        references[name] = jsonname;
+        try {    
+            let asJSON = JSON.stringify(shp.features[i], null, 4);
+            fs.writeFileSync(`${filename}`, asJSON);
+        } catch(ex) {
+            console.error("Could not write " + filename);
+            console.error(ex);
+            return false;
+        }
     }
     let {features: _, ...all} = shp;
+    all.features = references;
     fs.writeFileSync(`tmp/shpfeatures/_data.json`, JSON.stringify(all, null, 4));
-    return Promise.all(running);
+    return true;
+}
+
+async function processDBFs() {
+    if (!fs.existsSync(`tmp/dbffeatures`)) {
+        fs.mkdirSync(`tmp/dbffeatures`);
+    }
+
+    let references = {};
+
+    for (let i = 0; i < dbf.length; i++) {
+        let ident = dbf[i]["IDENT"]
+        let name = dbf[i]["NAME"]
+        let fn = ident + "_" +  name.replace(/[^a-zA-Z0-9]/g, "-");
+        let jsonname = `${fn}_${i}.json`;
+        let filename = `tmp/dbffeatures/dbf_${jsonname}`;
+        console.log(`   Writing ${filename}`);
+        references[name] = jsonname;
+        try {    
+            let asJSON = JSON.stringify(dbf[i], null, 4);
+            fs.writeFileSync(`${filename}`, asJSON);
+        } catch(ex) {
+            console.error("Could not write " + filename);
+            console.error(ex);
+            return false;
+        }
+    }
+    fs.writeFileSync(`tmp/dbffeatures/_data.json`, JSON.stringify(references, null, 4));
+    return true;
+
 }
 
 (async function() {
     console.log("Processing SHPs...");
     await processSHPs();
     console.log("Processing SHPs done.");
+    console.log("Processing DBFs...");
+    await processDBFs();
+    console.log("Processing DBFs done.");
 
 })();

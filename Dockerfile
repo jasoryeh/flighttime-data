@@ -5,6 +5,6 @@ RUN cd /flighttime
 RUN apk add bash curl unzip nodejs npm
 RUN npm i -g shapefile
 
-COPY parse.sh /flighttime
+COPY ./ /flighttime
 
-RUN bash parse.sh
+CMD [ "bash", "parse.sh" ]
